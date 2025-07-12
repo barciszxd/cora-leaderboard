@@ -1,6 +1,6 @@
 """Application entry point"""
 import argparse
-from app import create_app
+from app import app
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="Cora leaderboard API")
@@ -8,5 +8,4 @@ if __name__ == '__main__':
     arg_parser.add_argument("--port", default=5000, type=int, help="Port to run the API on")
     args = arg_parser.parse_args()
 
-    app = create_app()
     app.run(debug=True, host=args.host, port=args.port)
