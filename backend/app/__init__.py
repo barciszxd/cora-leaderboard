@@ -1,12 +1,14 @@
 """Flask application factory"""
 from flask import Flask
 from config import config
+import os
 
-def create_app(config_name='default'):
+def create_app():
     """Create and configure Flask application"""
     app = Flask(__name__)
 
     # Load configuration
+    config_name = os.environ.get('FLASK_ENV', 'default')
     app.config.from_object(config[config_name])
     
     # Register blueprints
