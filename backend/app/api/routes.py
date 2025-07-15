@@ -1,6 +1,8 @@
 """API routes"""
+import app.services.athlete as athlete_service
 import requests
 
+from app.database import db_session
 from config import config
 from flask import Blueprint, jsonify, request
 
@@ -29,7 +31,7 @@ def exchange_token():
     """Handle Strava OAuth authorization callback"""
 
     # Get query parameters
-    code = request.args.get('code')
+    code  = request.args.get('code')
     scope = request.args.get('scope')
     error = request.args.get('error')
 
@@ -51,19 +53,42 @@ def exchange_token():
 
     try:
         response = requests.post(
-            url=token_url,
-            data=token_data,
-            timeout=100,
-            verify=config.SSL_ENABLE
+            url     = token_url,
+            data    = token_data,
+            timeout = 100,
+            verify  = config.SSL_ENABLE
         )
         response.raise_for_status()  # Raises an HTTPError for bad responses
-        token_response = response.json()
+        token_data = response.json()
+
     except requests.exceptions.RequestException as e:
         return jsonify({"success": False, "error": f"Failed to exchange token: {str(e)}"}), 500
 
-    # TODO: Store token_response in the database
+    athlete_data = token_data.get('athlete', {})
+
+    athlete_repo = athlete_service.AthleteRepository(db_session)
+
+    msg = f"Exchanged token for athlete {athlete_data.get('id', 'unknown')}"
+
+    if existing_athlete := athlete_repo.get_by_id(athlete_data.get('id')):
+        # Update existing athlete
+        existing_athlete.update(
+            athlete_data = athlete_data,
+            token_data   = token_data
+        )
+        msg += " (athlete exists, updated)"
+
+    else:
+        # Create new athlete
+        athlete_repo.create(
+            athlete_data = athlete_data,
+            token_data   = token_data
+        )
+        msg += " (new athlete created)"
+
+    db_session.commit()
+
     return jsonify({
         "success": True,
-        "message": "Token exchanged successfully",
-        "token_response": token_response
+        "message": msg,
     }), 200
