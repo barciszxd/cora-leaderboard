@@ -72,7 +72,8 @@ def exchange_token():
 
     if existing_athlete := athlete_repo.get_by_id(athlete_data.get('id')):
         # Update existing athlete
-        existing_athlete.update(
+        athlete_repo.update(
+            athlete      = existing_athlete,
             athlete_data = athlete_data,
             token_data   = token_data
         )
