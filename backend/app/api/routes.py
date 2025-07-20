@@ -93,3 +93,65 @@ def exchange_token():
         "success": True,
         "message": msg,
     }), 200
+
+
+@api_bp.route('/webhook', methods=['GET'])
+def subscription_callback():
+    """Handle Strava subscription callback"""
+
+    # Get query parameters
+    challenge = request.args.get('hub.challenge')
+    verify_token = request.args.get('hub.verify_token')
+
+    if verify_token == config.STRAVA_VERIFY_TOKEN:
+        return jsonify({"success": True, "hub.challenge": challenge}), 200
+
+    return jsonify({"success": False, "error": "Bad request"}), 403
+
+
+@api_bp.route('/webhook', methods=['POST'])
+def webhook():
+    """Handle Strava webhook events"""
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"success": False, "error": "No data received"}), 400
+
+    message = "Webhook event received"
+    object_type = data.get('object_type')
+    aspect_type = data.get('aspect_type')
+    athlete_id = data.get('owner_id')
+
+    # handle activity-related events
+    if object_type == 'activity':
+        activity_id = data.get('object_id')
+
+        if aspect_type == 'create':
+            # TODO: Handle new activity creation
+            message = f"New activity created with ID {activity_id} for athlete {athlete_id}"
+
+        elif aspect_type == 'update':
+            updates = data.get('updates', {})
+            private = updates.get('private', False)
+
+            if private and private == "true":
+                # TODO: Handle activity set to private
+                message = f"Activity {activity_id} of athlete {athlete_id} deleted from the leaderboard"
+
+            elif private and private == "false":
+                # TODO: Handle activity set to public
+                message = f"Activity {activity_id} of athlete {athlete_id} added to the leaderboard"
+
+        elif aspect_type == 'delete':
+            message = f"Activity {activity_id} of athlete {athlete_id} deleted from the leaderboard"
+
+    # handle athlete-related events
+    elif object_type == 'athlete':
+        if aspect_type == 'update':
+            updates = data.get('updates', {})
+
+            if (authorized := updates.get('authorized', False)) and authorized == "false":
+                # TODO: Handle athlete deauthorization
+                message = f"Athlete {athlete_id} deauthorized the application"
+
+    return jsonify({"success": True, "message": message}), 200
