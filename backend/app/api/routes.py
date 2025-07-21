@@ -1,5 +1,6 @@
 """API routes"""
 import app.services.athlete as athlete_service
+import app.services.effort as effort_service
 import requests
 
 from app.database import db_session
@@ -117,7 +118,6 @@ def webhook():
     if not data:
         return jsonify({"success": False, "error": "No data received"}), 400
 
-    message = "Webhook event received"
     object_type = data.get('object_type')
     aspect_type = data.get('aspect_type')
     athlete_id = data.get('owner_id')
@@ -125,33 +125,99 @@ def webhook():
     # handle activity-related events
     if object_type == 'activity':
         activity_id = data.get('object_id')
+        effort_repo = effort_service.EffortRepository(db_session)
 
         if aspect_type == 'create':
-            # TODO: Handle new activity creation
-            message = f"New activity created with ID {activity_id} for athlete {athlete_id}"
+            effort_added = effort_repo.add(activity_id, athlete_id)
+            db_session.commit()
 
-        elif aspect_type == 'update':
+            msg = f"New activity {activity_id} of athlete {athlete_id} registered. "
+
+            if effort_added:
+                msg += "Segment effort added to the database."
+                status_code = 201
+            else:
+                msg += "No segment effort was added."
+                status_code = 200
+
+            return jsonify({"success": True, "message": msg}), status_code
+
+        if aspect_type == 'update':
             updates = data.get('updates', {})
             private = updates.get('private', False)
 
             if private and private == "true":
-                # TODO: Handle activity set to private
-                message = f"Activity {activity_id} of athlete {athlete_id} deleted from the leaderboard"
+                efforts_deleted = effort_repo.delete_efforts_by_activity_id(activity_id)
+                db_session.commit()
 
-            elif private and private == "false":
-                # TODO: Handle activity set to public
-                message = f"Activity {activity_id} of athlete {athlete_id} added to the leaderboard"
+                msg = f"Setting activity {activity_id} to private registered. "
 
-        elif aspect_type == 'delete':
-            message = f"Activity {activity_id} of athlete {athlete_id} deleted from the leaderboard"
+                if efforts_deleted:
+                    msg += "All related efforts were deleted."
+                    status_code = 200
+                else:
+                    msg += "No efforts to delete from leaderboard."
+                    status_code = 200
+
+                return jsonify({"success": True, "message": msg}), status_code
+
+            if private and private == "false":
+                effort_added = effort_repo.add(activity_id, athlete_id)
+                db_session.commit()
+
+                msg = f"Setting activity {activity_id} to public registered. "
+
+                if effort_added:
+                    msg += "Segment effort added to the database."
+                    status_code = 201
+                else:
+                    msg += "No segment effort was added."
+                    status_code = 200
+
+                return jsonify({"success": True, "message": msg}), status_code
+
+        if aspect_type == 'delete':
+            efforts_deleted = effort_repo.delete_efforts_by_activity_id(activity_id)
+            db_session.commit()
+
+            msg = f"Deleted activity {activity_id}. "
+
+            if efforts_deleted:
+                msg += "All related efforts were deleted."
+                status_code = 200
+            else:
+                msg += "No efforts to delete from leaderboard."
+                status_code = 200
+
+            return jsonify({"success": True, "message": msg}), status_code
+
+        return jsonify({"success": False, "error": "Unsupported aspect type for activity"}), 400
 
     # handle athlete-related events
-    elif object_type == 'athlete':
+    if object_type == 'athlete':
         if aspect_type == 'update':
+            effort_repo = effort_service.EffortRepository(db_session)
+            athlete_repo = athlete_service.AthleteRepository(db_session)
             updates = data.get('updates', {})
 
             if (authorized := updates.get('authorized', False)) and authorized == "false":
-                # TODO: Handle athlete deauthorization
-                message = f"Athlete {athlete_id} deauthorized the application"
+                athlete_deleted = athlete_repo.delete_by_id(athlete_id)
+                efforts_deleted = effort_repo.delete_efforts_by_athlete_id(athlete_id)
+                db_session.commit()
+                msg = f"Athlete {athlete_id} deauthorized the application. "
 
-    return jsonify({"success": True, "message": message}), 200
+                if athlete_deleted:
+                    msg += "Athlete record deleted. "
+                else:
+                    msg += "No athlete record to delete. "
+
+                if efforts_deleted:
+                    msg += "All related efforts deleted."
+                else:
+                    msg += "No efforts to delete from leaderboard."
+
+                return jsonify({"success": True, "message": msg}), 200
+
+        return jsonify({"success": False, "error": "Unsupported aspect type for athlete"}), 400
+
+    return jsonify({"success": False, "error": "Unsupported object type"}), 400
