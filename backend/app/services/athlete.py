@@ -38,6 +38,14 @@ class AthleteRepository:
 
         return athlete
 
+    def delete_by_id(self, athlete_id: int) -> bool:
+        """Delete athlete by ID."""
+        athlete = self.get_by_id(athlete_id)
+        if athlete:
+            self.session.delete(athlete)
+            return True
+        return False
+
     def update_token(self, athlete: Athlete, token_data: dict) -> Athlete:
         """Update the access token for an athlete."""
         athlete.access_token  = token_data.get('access_token', athlete.access_token)
@@ -84,6 +92,5 @@ class AthleteRepository:
             response.raise_for_status()  # Raises an HTTPError for bad responses
             token_data = response.json()
             self.update_token(athlete, token_data)
-            self.session.commit()
 
         return athlete.access_token if athlete else None
