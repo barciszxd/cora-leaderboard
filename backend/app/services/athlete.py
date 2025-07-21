@@ -51,7 +51,16 @@ class AthleteRepository:
         return self.session.query(Athlete).filter_by(id=athlete_id).first()
 
     def get_access_token(self, athlete_id: int) -> str | None:
-        """Get access token for an athlete."""
+        """Get access token for an athlete.
+
+        If the token is expired, get a new one and update the athlete record.
+
+        Args:
+            athlete_id (int): The ID of the athlete.
+
+        Returns:
+            str | None: The access token if available, otherwise None.
+        """
         athlete = self.get_by_id(athlete_id)
 
         if not athlete:
@@ -75,5 +84,6 @@ class AthleteRepository:
             response.raise_for_status()  # Raises an HTTPError for bad responses
             token_data = response.json()
             self.update_token(athlete, token_data)
+            self.session.commit()
 
         return athlete.access_token if athlete else None
