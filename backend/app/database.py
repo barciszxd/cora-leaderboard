@@ -14,5 +14,7 @@ db_session = SessionLocal()
 
 def init_db():
     """Initialize database tables"""
-    from app.models.athlete import Base
+    from app.models import Base
+    from app.models.athlete import Athlete
+    from app.models.effort import Efforts
     Base.metadata.create_all(bind=engine)
