@@ -9,6 +9,7 @@ class Config:
     CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
     DATABASE_URL = os.environ.get('DATABASE_URL')
     STRAVA_VERIFY_TOKEN = os.environ.get('STRAVA_VERIFY_TOKEN')
+    STRAVA_API_URL = "https://www.strava.com/api/v3"
 
 
 class DevelopmentConfig(Config):
