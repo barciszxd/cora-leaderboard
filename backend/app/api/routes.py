@@ -1,5 +1,6 @@
 """API routes"""
 import app.services.athlete as athlete_service
+import app.services.challenge as challenge_service
 import app.services.effort as effort_service
 import requests
 
@@ -221,3 +222,42 @@ def webhook():
         return jsonify({"success": False, "error": "Unsupported aspect type for athlete"}), 400
 
     return jsonify({"success": False, "error": "Unsupported object type"}), 400
+
+
+@api_bp.route('/challenges', methods=['POST'])
+def create_challenge():
+    """Create a new challenge"""
+    data = request.json
+    if not data:
+        return jsonify({"success": False, "error": "No data provided"}), 400
+    segment_id = data.get('segment_id')
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
+
+    challenge_repo = challenge_service.ChallengeRepository(db_session)
+    challenge_repo.add(segment_id, start_date, end_date)
+    db_session.commit()
+
+    return jsonify({"success": True, "message": "Challenge created successfully."}), 201
+
+
+@api_bp.route('/challenges', methods=['GET'])
+def get_challenge():
+    """Get challenge by ID or current challenge"""
+    challenge_repo = challenge_service.ChallengeRepository(db_session)
+    challenge_id = request.args.get('id')
+
+    if challenge_id and challenge_id.isdigit():
+        challenge = challenge_repo.get_by_id(int(challenge_id))
+    else:
+        challenge = challenge_repo.get_current()
+
+    if not challenge:
+        return jsonify({"success": False, "error": "Challenge not found"}), 404
+
+    return jsonify({
+        "id": challenge.id,
+        "segment_id": challenge.segment_id,
+        "start_date": challenge.start_date,
+        "end_date": challenge.end_date,
+    }), 200
