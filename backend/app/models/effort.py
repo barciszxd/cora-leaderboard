@@ -13,6 +13,6 @@ class Efforts(Base):
     athlete_id    = Column(Integer, nullable=False)  # Foreign key to Athlete
     activity_id   = Column(BigInteger, nullable=False)  # Foreign key to Activity
     segment_id    = Column(Integer, nullable=False)  # Foreign key to Segment
-    start_date    = Column(DateTime, nullable=False)  # Start date of the effort
+    start_date    = Column(DateTime(timezone=True), nullable=False)  # Start date of the effort
     elapsed_time  = Column(Integer, nullable=False)  # Elapsed time in seconds
-    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
