@@ -47,3 +47,7 @@ class ChallengeRepository:
             Challenge.start_date <= current_time,
             Challenge.end_date >= current_time
         ).first()
+
+    def get_all(self) -> list[Challenge]:
+        """Get all challenges."""
+        return self.session.query(Challenge).all()

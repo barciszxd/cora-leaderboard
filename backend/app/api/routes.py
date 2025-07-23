@@ -246,9 +246,22 @@ def get_challenge():
     """Get challenge by ID or current challenge"""
     challenge_repo = challenge_service.ChallengeRepository(db_session)
     challenge_id = request.args.get('id')
+    get_all = request.args.get('all')
 
     if challenge_id and challenge_id.isdigit():
         challenge = challenge_repo.get_by_id(int(challenge_id))
+    elif get_all and get_all.lower() == 'true':
+        challenges = challenge_repo.get_all()
+        if not challenges:
+            return jsonify({"success": False, "error": "No challenges found"}), 404
+        # Convert challenges to a list of dictionaries
+
+        return jsonify([{
+            "id": challenge.id,
+            "segment_id": challenge.segment_id,
+            "start_date": challenge.start_date,
+            "end_date": challenge.end_date,
+        } for challenge in challenges]), 200
     else:
         challenge = challenge_repo.get_current()
 
