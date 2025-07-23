@@ -16,5 +16,5 @@ class Athlete(Base):
     refresh_token = Column(String(255))
     expires_at    = Column(Integer)  # Unix timestamp
     token_type    = Column(String(20), default='Bearer')
-    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
