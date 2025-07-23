@@ -1,10 +1,8 @@
 """Module containing the Athlete model for the Cora Leaderboard application."""
 from datetime import datetime, timezone
 
+from app.models import Base
 from sqlalchemy import Column, DateTime, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
 
 
 class Athlete(Base):
