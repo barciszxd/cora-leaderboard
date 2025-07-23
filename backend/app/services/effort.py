@@ -2,6 +2,7 @@ import requests
 
 from app.models.effort import Efforts
 from app.services.athlete import AthleteRepository
+from app.services.challenge import ChallengeRepository
 from config import config
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,7 @@ class EffortRepository:
 
         endpoint = f"{config.STRAVA_API_URL}/activities/{activity_id}?include_all_efforts=true"
         athlete_repo = AthleteRepository(self.session)
+        challenge_repo = ChallengeRepository(self.session)
         access_token = athlete_repo.get_access_token(athlete_id)
         response = requests.get(endpoint, headers={"Authorization": f"Bearer {access_token}"}, timeout=100, verify=config.SSL_ENABLE)
         response.raise_for_status()
@@ -25,10 +27,13 @@ class EffortRepository:
         if not (segment_efforts := data.get('segment_efforts')):
             return False
 
-        current_segment_id = 24000890  # Example segment ID, TODO: replace with actual logic to get segment ID
+        current_challenge = challenge_repo.get_current()
+
+        if not current_challenge:
+            return False
 
         for effort in segment_efforts:
-            if effort.get('segment', {}).get('id') == current_segment_id:
+            if effort.get('segment', {}).get('id') == current_challenge.segment_id:
                 self._save_effort(effort)
                 return True
 
