@@ -16,6 +16,11 @@ class AthleteRepository:
 
     def create(self, athlete_data: dict, token_data: dict) -> Athlete:
         """Create a new athlete."""
+        # Check if athlete already exists
+        athlete = self.get_by_id(athlete_data['id'])
+        if athlete:
+            return athlete
+
         athlete = Athlete(
             id            = athlete_data['id'],
             firstname     = athlete_data.get('firstname'),
