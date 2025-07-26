@@ -119,6 +119,8 @@ def webhook():
     if not data:
         return jsonify({"success": False, "error": "No data received"}), 400
 
+    print(f"Received webhook data: {data}")
+
     object_type = data.get('object_type')
     aspect_type = data.get('aspect_type')
     athlete_id = data.get('owner_id')
