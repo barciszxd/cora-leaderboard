@@ -49,12 +49,14 @@ class EffortRepository:
         if not (segment_efforts := activity_data.get('segment_efforts')):
             return False
 
+        effort_saved = False
+
         for effort in segment_efforts:
             if effort.get('segment', {}).get('id') == current_challenge.segment_id:
                 self._save_effort(effort)
-                return True
+                effort_saved = True
 
-        return False
+        return effort_saved
 
     def delete_efforts_by_activity_id(self, activity_id: int) -> bool:
         """Remove all effort records related with given activity ID."""
