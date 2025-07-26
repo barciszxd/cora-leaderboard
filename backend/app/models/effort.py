@@ -5,7 +5,7 @@ from app.models import Base
 from sqlalchemy import BigInteger, Column, DateTime, Integer
 
 
-class Efforts(Base):
+class Effort(Base):
     """Database model for athlete efforts."""
     __tablename__ = 'efforts'
 

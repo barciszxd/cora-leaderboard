@@ -17,5 +17,5 @@ def init_db():
     from app.models import Base
     from app.models.athlete import Athlete
     from app.models.challenge import Challenge
-    from app.models.effort import Efforts
+    from app.models.effort import Effort
     Base.metadata.create_all(bind=engine)
