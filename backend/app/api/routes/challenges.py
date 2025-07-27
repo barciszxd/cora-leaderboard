@@ -1,4 +1,5 @@
 import app.services.challenge as challenge_service
+import app.services.segment as segment_service
 
 from app.api.routes import api_bp
 from app.database import db_session
@@ -15,6 +16,7 @@ def create_challenge():
 
     challenge_repo = challenge_service.ChallengeRepository(db_session)
     challenge_repo.add(
+        name              = data.get('name'),
         climb_segment_id  = data.get('climb_segment_id'),
         sprint_segment_id = data.get('sprint_segment_id'),
         start_date        = data.get('start_date'),
@@ -26,35 +28,82 @@ def create_challenge():
 
 
 @api_bp.route('/challenges', methods=['GET'])
-def get_challenge():
-    """Get challenge by ID or current challenge"""
+def get_challenges():
+    """Get all challenges"""
     challenge_repo = challenge_service.ChallengeRepository(db_session)
-    challenge_id = request.args.get('id')
-    get_all = request.args.get('all')
 
-    if challenge_id and challenge_id.isdigit():
-        challenge = challenge_repo.get_by_id(int(challenge_id))
-    elif get_all and get_all.lower() == 'true':
-        challenges = challenge_repo.get_all()
-        if not challenges:
-            return jsonify({"success": False, "error": "No challenges found"}), 404
-        # Convert challenges to a list of dictionaries
+    challenges = challenge_repo.get_all()
 
-        return jsonify([{
-            "id": challenge.id,
-            "segment_id": challenge.segment_id,
-            "start_date": challenge.start_date,
-            "end_date": challenge.end_date,
-        } for challenge in challenges]), 200
-    else:
-        challenge = challenge_repo.get_current()
+    if not challenges:
+        return jsonify({"success": False, "error": "No challenges found"}), 404
+    # Convert challenges to a list of dictionaries
+
+    segment_repo = segment_service.SegmentRepository(db_session)
+
+    response = []
+
+    for challenge in challenges:
+        climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
+
+        challenge_dict = {
+            "id"            : challenge.id,
+            "name"          : challenge.name,
+            "start_date"    : challenge.start_date.isoformat(),
+            "end_date"      : challenge.end_date.isoformat(),
+            "climb_segment" : climb_segment_dict,
+            "sprint_segment": sprint_segment_dict
+        }
+
+        response.append(challenge_dict)
+
+    return jsonify(response), 200
+
+
+@api_bp.route('/challenges/<int:challenge_id>', methods=['GET'])
+def get_challenge_by_id(challenge_id):
+    """Get a challenge by ID"""
+    challenge_repo = challenge_service.ChallengeRepository(db_session)
+    challenge = challenge_repo.get_by_id(challenge_id)
 
     if not challenge:
         return jsonify({"success": False, "error": "Challenge not found"}), 404
 
-    return jsonify({
-        "id": challenge.id,
-        "segment_id": challenge.segment_id,
-        "start_date": challenge.start_date,
-        "end_date": challenge.end_date,
-    }), 200
+    segment_repo = segment_service.SegmentRepository(db_session)
+
+    climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
+
+    response = {
+        "id"            : challenge.id,
+        "name"          : challenge.name,
+        "start_date"    : challenge.start_date.isoformat(),
+        "end_date"      : challenge.end_date.isoformat(),
+        "climb_segment" : climb_segment_dict,
+        "sprint_segment": sprint_segment_dict
+    }
+
+    return jsonify(response), 200
+
+
+def get_segments_for_challenge(
+        challenge: challenge_service.Challenge,
+        segment_repo: segment_service.SegmentRepository) -> tuple[dict, dict]:
+    """Get segment details for a challenge."""
+    climb_segment = segment_repo.get_by_id(challenge.climb_segment_id)
+    climb_segment_dict = {
+        "id": climb_segment.id,
+        "name": climb_segment.name,
+        "type": "climb",
+        "distance": climb_segment.distance,
+        "elevation_gain": climb_segment.elevation_gain
+    } if climb_segment else None
+
+    sprint_segment = segment_repo.get_by_id(challenge.sprint_segment_id)
+    sprint_segment_dict = {
+        "id": sprint_segment.id,
+        "name": sprint_segment.name,
+        "type": "sprint",
+        "distance": sprint_segment.distance,
+        "elevation_gain": sprint_segment.elevation_gain
+    } if sprint_segment else None
+
+    return climb_segment_dict, sprint_segment_dict

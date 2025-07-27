@@ -18,12 +18,14 @@ class ChallengeRepository:
         self.session = session
 
     def add(self,
+            name: str,
             climb_segment_id: int,
             sprint_segment_id: int,
             start_date: datetime,
             end_date: datetime) -> Challenge:
         """Add a new challenge."""
         challenge = Challenge(
+            name              = name,
             climb_segment_id  = climb_segment_id,
             sprint_segment_id = sprint_segment_id,
             start_date        = start_date,
