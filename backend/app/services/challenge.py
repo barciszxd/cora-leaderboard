@@ -1,7 +1,13 @@
 """Challenge Repository Module"""
 from datetime import datetime, timezone
 
+import requests
+
 from app.models.challenge import Challenge
+from app.models.segment import Segment
+from app.services.athlete import AthleteRepository
+from app.services.segment import SegmentRepository
+from config import config
 from sqlalchemy.orm import Session
 
 
@@ -11,14 +17,24 @@ class ChallengeRepository:
     def __init__(self, session: Session):
         self.session = session
 
-    def add(self, segment_id: int, start_date: datetime, end_date: datetime) -> Challenge:
+    def add(self,
+            climb_segment_id: int,
+            sprint_segment_id: int,
+            start_date: datetime,
+            end_date: datetime) -> Challenge:
         """Add a new challenge."""
         challenge = Challenge(
-            segment_id=segment_id,
-            start_date=start_date,
-            end_date=end_date
+            climb_segment_id  = climb_segment_id,
+            sprint_segment_id = sprint_segment_id,
+            start_date        = start_date,
+            end_date          = end_date
         )
         self.session.add(challenge)
+
+        segment_repo = SegmentRepository(self.session)
+        segment_repo.create(climb_segment_id)
+        segment_repo.create(sprint_segment_id)
+
         return challenge
 
     def delete_by_id(self, challenge_id: int) -> bool:

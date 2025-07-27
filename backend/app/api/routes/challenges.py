@@ -9,14 +9,17 @@ from flask import jsonify, request
 def create_challenge():
     """Create a new challenge"""
     data = request.json
+
     if not data:
         return jsonify({"success": False, "error": "No data provided"}), 400
-    segment_id = data.get('segment_id')
-    start_date = data.get('start_date')
-    end_date = data.get('end_date')
 
     challenge_repo = challenge_service.ChallengeRepository(db_session)
-    challenge_repo.add(segment_id, start_date, end_date)
+    challenge_repo.add(
+        climb_segment_id  = data.get('climb_segment_id'),
+        sprint_segment_id = data.get('sprint_segment_id'),
+        start_date        = data.get('start_date'),
+        end_date          = data.get('end_date'))
+
     db_session.commit()
 
     return jsonify({"success": True, "message": "Challenge created successfully."}), 201
