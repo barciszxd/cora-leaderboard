@@ -18,4 +18,5 @@ def init_db():
     from app.models.athlete import Athlete
     from app.models.challenge import Challenge
     from app.models.effort import Effort
+    from app.models.segment import Segment
     Base.metadata.create_all(bind=engine)
