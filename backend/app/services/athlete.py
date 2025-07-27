@@ -25,6 +25,7 @@ class AthleteRepository:
             id            = athlete_data['id'],
             firstname     = athlete_data.get('firstname'),
             lastname      = athlete_data.get('lastname'),
+            sex           = athlete_data.get('sex'),
             access_token  = token_data.get('access_token'),
             refresh_token = token_data.get('refresh_token'),
             expires_at    = token_data.get('expires_at'),
@@ -37,6 +38,7 @@ class AthleteRepository:
         """Update an existing athlete."""
         athlete.firstname     = athlete_data.get('firstname', athlete.firstname)
         athlete.lastname      = athlete_data.get('lastname', athlete.lastname)
+        athlete.sex           = athlete_data.get('sex', athlete.sex)
         athlete.access_token  = token_data.get('access_token', athlete.access_token)
         athlete.refresh_token = token_data.get('refresh_token', athlete.refresh_token)
         athlete.expires_at    = token_data.get('expires_at', athlete.expires_at)
@@ -62,6 +64,10 @@ class AthleteRepository:
     def get_by_id(self, athlete_id: int) -> Athlete | None:
         """Get athlete by ID."""
         return self.session.query(Athlete).filter_by(id=athlete_id).first()
+
+    def get_all(self) -> list[Athlete]:
+        """Get all athletes."""
+        return self.session.query(Athlete).all()
 
     def get_access_token(self, athlete_id: int) -> str | None:
         """Get access token for an athlete.

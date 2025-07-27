@@ -12,6 +12,7 @@ class Athlete(Base):
     id            = Column(Integer, primary_key=True)  # Strava athlete ID
     firstname     = Column(String(100))
     lastname      = Column(String(100))
+    sex           = Column(String(1))
     access_token  = Column(String(255))
     refresh_token = Column(String(255))
     expires_at    = Column(Integer)  # Unix timestamp
