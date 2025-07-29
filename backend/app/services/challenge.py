@@ -1,13 +1,8 @@
 """Challenge Repository Module"""
 from datetime import datetime, timezone
 
-import requests
-
 from app.models.challenge import Challenge
-from app.models.segment import Segment
-from app.services.athlete import AthleteRepository
 from app.services.segment import SegmentRepository
-from config import config
 from sqlalchemy.orm import Session
 
 

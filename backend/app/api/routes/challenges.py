@@ -5,6 +5,8 @@ import app.services.segment as segment_service
 
 from app.api.routes import api_bp
 from app.database import db_session
+from app.helpers import Gender
+from app.services.results import ResultService
 from config import config
 from flask import jsonify, request
 
@@ -90,92 +92,22 @@ def get_challenge_by_id(challenge_id):
 @api_bp.route('/challenges/<int:challenge_id>/results', methods=['GET'])
 def get_challenge_results(challenge_id):
     """Get results for a specific challenge"""
-    # TODO: refactor this spaghetti code
-    challenge_repo = challenge_service.ChallengeRepository(db_session)
-
-    if not (challenge := challenge_repo.get_by_id(challenge_id)):
-        return jsonify({"success": False, "error": "Challenge not found"}), 404
 
     segment_type = request.args.get('segment_type')
     gender = request.args.get('gender')
 
-    if segment_type not in ['climb', 'sprint', None]:
-        return jsonify({"success": False, "error": "Invalid segment type"}), 400
+    if not segment_type or segment_type not in ['climb', 'sprint']:
+        return jsonify({"success": False, "error": "Invalid or no segment type"}), 400
 
-    segment_ids = {
-        "climb": challenge.climb_segment_id,
-        "sprint": challenge.sprint_segment_id
-    }
+    if not gender or gender not in Gender.values():
+        return jsonify({"success": False, "error": "Invalid or no gender"}), 400
 
-    efforts_repo = effort_service.EffortRepository(db_session)
+    try:
+        result_service = ResultService(challenge_id, db_session)
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 404
 
-    if segment_type is not None:
-        efforts = efforts_repo.get_efforts_by_segment_id_and_date(
-            segment_id = segment_ids[segment_type],
-            start_date = challenge.start_date,
-            end_date   = challenge.end_date
-        )
-    else:
-        efforts: list[effort_service.Effort] = []
-        for segment_id in segment_ids.values():
-            efforts += efforts_repo.get_efforts_by_segment_id_and_date(
-                segment_id = segment_id,
-                start_date = challenge.start_date,
-                end_date   = challenge.end_date
-            )
-
-    if not efforts:
-        return jsonify([]), 204
-
-    results = []
-    positions = {
-        "M" : {"climb": 0, "sprint": 0},
-        "F" : {"climb": 0, "sprint": 0}
-    }
-    athlete_repo = athlete_service.AthleteRepository(db_session)
-
-    for effort in efforts:
-        athlete = athlete_repo.get_by_id(effort.athlete_id)
-        if not athlete:
-            continue
-        if gender and athlete.sex != gender:
-            continue
-
-        # Check if the athlete already has a better time for this segment
-        # If so, skip this effort
-        existing_result = next((result for result in results if result["athlete_id"] == effort.athlete_id and result["segment_id"] == effort.segment_id), None)
-
-        if existing_result and existing_result["time"] < effort.elapsed_time:
-            continue
-
-        is_climb_effort = effort.segment_id == challenge.climb_segment_id
-
-        result = {
-            "id"            : effort.id,
-            "athlete_id"    : effort.athlete_id,
-            "athlete_name"  : f"{athlete.firstname} {athlete.lastname}",
-            "challenge_id"  : challenge.id,
-            "segment_id"    : effort.segment_id,
-            "segment_type"  : "climb" if is_climb_effort else "sprint",
-            "time"          : effort.elapsed_time,
-            "recorded_at"   : effort.start_date.isoformat()
-        }
-        if is_climb_effort:
-            positions[athlete.sex]["climb"] += 1
-            p = positions[athlete.sex]["climb"]
-            result["points"] = config.POINTS[p - 1] if p - 1 < len(config.POINTS) else 0
-            result["position"] = p
-        else:
-            positions[athlete.sex]["sprint"] += 1
-            p = positions[athlete.sex]["sprint"]
-            result["points"] = config.POINTS[p - 1] if p - 1 < len(config.POINTS) else 0
-            result["position"] = p
-
-        results.append(result)
-
-    # Fetch results for the challenge
-
-    return jsonify(results), 200
+    return jsonify(list(result_service.yield_results(segment_type, Gender(gender)))), 200
 
 
 def get_segments_for_challenge(
