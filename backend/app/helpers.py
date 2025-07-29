@@ -16,6 +16,30 @@ class TimeSpan:
         """Check if a timestamp is within the time span."""
         return self.start <= timestamp <= self.end
 
+    def __lt__(self, other: datetime) -> bool:
+        """Check if this time span ends before another timestamp."""
+        if not isinstance(other, datetime):
+            raise NotImplementedError
+        return self.end < other
+
+    def __gt__(self, other: datetime) -> bool:
+        """Check if this time span starts after another timestamp."""
+        if not isinstance(other, datetime):
+            raise NotImplementedError
+        return self.start > other
+
+    def __le__(self, other: datetime) -> bool:
+        """Check if this time span ends before or at another timestamp."""
+        if not isinstance(other, datetime):
+            raise NotImplementedError
+        return self.end <= other
+
+    def __ge__(self, other: datetime) -> bool:
+        """Check if this time span starts after or at another timestamp."""
+        if not isinstance(other, datetime):
+            raise NotImplementedError
+        return self.start >= other
+
 
 class Gender(enum.StrEnum):
     """Enumeration for gender."""

@@ -1,13 +1,12 @@
-import app.services.athlete as athlete_service
+from datetime import datetime, timezone
+
 import app.services.challenge as challenge_service
-import app.services.effort as effort_service
 import app.services.segment as segment_service
 
 from app.api.routes import api_bp
 from app.database import db_session
-from app.helpers import Gender
+from app.helpers import Gender, TimeSpan
 from app.services.results import ResultService
-from config import config
 from flask import jsonify, request
 
 
@@ -48,6 +47,8 @@ def get_challenges():
     response = []
 
     for challenge in challenges:
+        now = datetime.now(timezone.utc)
+        time_span = TimeSpan(challenge.start_date, challenge.end_date)
         climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
 
         challenge_dict = {
@@ -56,7 +57,8 @@ def get_challenges():
             "start_date"    : challenge.start_date.isoformat(),
             "end_date"      : challenge.end_date.isoformat(),
             "climb_segment" : climb_segment_dict,
-            "sprint_segment": sprint_segment_dict
+            "sprint_segment": sprint_segment_dict,
+            "status"        : "upcoming" if now < time_span else "completed" if now > time_span else "active"
         }
 
         response.append(challenge_dict)
@@ -77,13 +79,17 @@ def get_challenge_by_id(challenge_id):
 
     climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
 
+    now = datetime.now(timezone.utc)
+    time_span = TimeSpan(challenge.start_date, challenge.end_date)
+
     response = {
         "id"            : challenge.id,
         "name"          : challenge.name,
         "start_date"    : challenge.start_date.isoformat(),
         "end_date"      : challenge.end_date.isoformat(),
         "climb_segment" : climb_segment_dict,
-        "sprint_segment": sprint_segment_dict
+        "sprint_segment": sprint_segment_dict,
+        "status"        : "upcoming" if now < time_span else "completed" if now > time_span else "active"
     }
 
     return jsonify(response), 200
@@ -96,10 +102,10 @@ def get_challenge_results(challenge_id):
     segment_type = request.args.get('segment_type')
     gender = request.args.get('gender')
 
-    if not segment_type or segment_type not in ['climb', 'sprint']:
+    if segment_type and segment_type not in ['climb', 'sprint']:
         return jsonify({"success": False, "error": "Invalid or no segment type"}), 400
 
-    if not gender or gender not in Gender.values():
+    if gender and gender not in Gender.values():
         return jsonify({"success": False, "error": "Invalid or no gender"}), 400
 
     try:
@@ -107,7 +113,15 @@ def get_challenge_results(challenge_id):
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 404
 
-    return jsonify(list(result_service.yield_results(segment_type, Gender(gender)))), 200
+    segment_types = [segment_type] if segment_type else ['climb', 'sprint']
+    genders = [gender] if gender else Gender.values()
+
+    results = []
+    for segment_type in segment_types:
+        for gender in genders:
+            results.extend(result_service.yield_results(segment_type, Gender(gender)))
+
+    return jsonify(results), 200
 
 
 def get_segments_for_challenge(
