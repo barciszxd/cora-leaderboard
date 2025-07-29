@@ -1,5 +1,5 @@
 """Flask application factory"""
-import os
+import importlib
 
 from app.database import init_db
 from config import config
@@ -18,6 +18,11 @@ def create_app():
 
     # Register blueprints
     from app.api.routes import api_bp  # pylint: disable=import-outside-toplevel
+
+    if config.DEBUG:
+        CORS = importlib.import_module("flask_cors").CORS
+        CORS(flask_app, origins=['http://localhost:8080'])
+
     flask_app.register_blueprint(api_bp, url_prefix='/api')
 
     return flask_app
