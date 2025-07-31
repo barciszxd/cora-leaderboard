@@ -109,7 +109,8 @@ def get_challenge_results(challenge_id):
         return jsonify({"success": False, "error": "Invalid or no gender"}), 400
 
     try:
-        result_service = ResultService(challenge_id, db_session)
+        result_service = ResultService()
+        result_service.query_from_db(challenge_id, db_session)
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 404
 
