@@ -80,6 +80,9 @@ class ResultService:
             Effort.start_date <= challenge.end_date
         ).all()
 
+        if not self._challenge_efforts:
+            return
+
         self._participating_athletes = session.query(           # type: ignore
             Athlete.id, Athlete.firstname, Athlete.lastname, Athlete.sex
         ).filter(
@@ -118,8 +121,8 @@ class ResultService:
 
         return sorted(best_efforts.values(), key=lambda e: e.elapsed_time)  # type: ignore
 
-    def yield_results(self, segment_type: str, gender: Gender) -> Generator[dict[str, Any], None, None]:
-        """Get results for a specific segment and gender."""
+    def _get_best_efforts(self, segment_type: str, gender: Gender) -> list[Effort]:
+        """A sorted list of best efforts for the specified segment type and gender."""
         if segment_type not in self._segment_ids:
             raise ValueError("Invalid segment type. Must be 'climb' or 'sprint'.")
 
@@ -129,7 +132,43 @@ class ResultService:
         efforts_filter = ResultFilter(gender, segment_type, self)
         relevant_efforts = filter(efforts_filter, self._challenge_efforts)
 
-        for i, effort in enumerate(self._filter_best_efforts(relevant_efforts)):
+        return self._filter_best_efforts(relevant_efforts)
+
+    def yield_simplified_results(self, segment_type: str, gender: Gender) -> Generator[tuple[int, int, int], None, None]:
+        """Yield simplified results for the specified segment type and gender.
+
+        Args:
+            segment_type (str): The type of segment ('climb' or 'sprint').
+            gender (Gender): The gender of the athletes to filter by.
+
+        Yields:
+            (int): Athlete ID,
+            (int): Elapsed time,
+            (int): Points awarded for the position.
+        """
+        best_efforts = self._get_best_efforts(segment_type, gender)
+
+        for i, effort in enumerate(best_efforts):
+            yield (                     # type: ignore
+                effort.athlete_id,
+                effort.elapsed_time,
+                self.points[i] if i < len(self.points) else 0
+            )
+
+    def yield_results(self, segment_type: str, gender: Gender) -> Generator[dict[str, Any], None, None]:
+        """Yield results for the specified segment type and gender.
+
+        Args:
+            segment_type (str): The type of segment ('climb' or 'sprint').
+            gender (Gender): The gender of the athletes to filter by.
+
+        Yields:
+            dict[str, Any]: A dictionary containing the result data for each athlete.
+        """
+
+        best_efforts = self._get_best_efforts(segment_type, gender)
+
+        for i, effort in enumerate(best_efforts):
             result_dict = {
                 "id": effort.id,
                 "athlete_id": effort.athlete_id,
