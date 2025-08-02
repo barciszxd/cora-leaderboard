@@ -173,6 +173,7 @@ class ResultService:
         for i, effort in enumerate(best_efforts):
             result_dict = {
                 "id": effort.id,
+                "activity_id": effort.activity_id,
                 "athlete_id": effort.athlete_id,
                 "athlete_name": self.athlete_names.get(effort.athlete_id, "Unknown"),  # type: ignore
                 "athlete_gender": self.athlete_genders.get(effort.athlete_id, "Unknown"),  # type: ignore
