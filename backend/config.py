@@ -18,6 +18,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     SSL_ENABLE = False  # Disable SSL verification for development
+    FRONTEND_URL = "http://localhost:8080"  # Development frontend URL
 
 
 class ProductionConfig(Config):
@@ -25,6 +26,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SSL_ENABLE = True  # Enable SSL verification for production
+    FRONTEND_URL = os.environ.get('FRONTEND_URL')
 
 
 # Configuration mapping

@@ -4,6 +4,7 @@ import importlib
 from app.database import init_db
 from config import config
 from flask import Flask
+from flask_cors import CORS
 
 
 def create_app():
@@ -20,8 +21,12 @@ def create_app():
     from app.api.routes import api_bp  # pylint: disable=import-outside-toplevel
 
     if config.DEBUG:
-        CORS = importlib.import_module("flask_cors").CORS
         CORS(flask_app, origins=['http://localhost:8080'])
+    else:
+        CORS(flask_app,
+             origins              = [config.FRONTEND_URL],
+             methods              = ['GET', 'POST', 'PUT', 'DELETE'],
+             allow_headers        = ['Content-Type'])
 
     flask_app.register_blueprint(api_bp, url_prefix='/api')
 
