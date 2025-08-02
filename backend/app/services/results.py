@@ -69,6 +69,8 @@ class ResultService:
         if not challenge:
             raise ValueError("Challenge not found")
 
+        self._challenge_id = challenge_id
+
         self._segment_ids = {                   # type: ignore
             "climb": challenge.climb_segment_id,
             "sprint": challenge.sprint_segment_id
@@ -173,6 +175,7 @@ class ResultService:
                 "id": effort.id,
                 "athlete_id": effort.athlete_id,
                 "athlete_name": self.athlete_names.get(effort.athlete_id, "Unknown"),  # type: ignore
+                "athlete_gender": self.athlete_genders.get(effort.athlete_id, "Unknown"),  # type: ignore
                 "challenge_id": self._challenge_id,
                 "segment_id": effort.segment_id,
                 "segment_type": segment_type,
