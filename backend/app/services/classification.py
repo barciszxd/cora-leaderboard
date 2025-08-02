@@ -91,6 +91,8 @@ class ClassificationService:
         athlete_genders = self.athlete_genders
 
         for athlete in self.athletes:
+            if athlete[3] != gender:
+                continue
             ath_id = athlete[0]
             yield {
                 "athlete_id": ath_id,
