@@ -39,7 +39,7 @@ def exchange_token():
             timeout = 100,
             verify  = config.SSL_ENABLE
         )
-        response.raise_for_status()  # Raises an HTTPError for bad responses
+        response.raise_for_status()
         token_data = response.json()
 
     except requests.exceptions.RequestException as e:
@@ -59,6 +59,7 @@ def exchange_token():
             token_data   = token_data
         )
         msg += " (athlete exists, updated)"
+        created = False
 
     else:
         # Create new athlete
@@ -67,10 +68,13 @@ def exchange_token():
             token_data   = token_data
         )
         msg += " (new athlete created)"
+        created = True
 
     db_session.commit()
 
     return jsonify({
         "success": True,
         "message": msg,
+        "athlete_created": created,
+        "athlete": athlete_data
     }), 200
