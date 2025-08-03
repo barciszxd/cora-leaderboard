@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 
 from app.api.routes import api_bp
-from app.database import db_session
 from app.helpers import Gender, TimeSpan
 from app.services.classification import ClassificationService
 from flask import jsonify, request
@@ -24,7 +23,7 @@ def get_classification():
     )
 
     classification_service = ClassificationService(season_time_span)
-    classification_service.query_from_db(db_session)
+    classification_service.query_from_db()
     classification_data = []
 
     for gender in genders:

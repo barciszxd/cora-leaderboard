@@ -1,13 +1,18 @@
+import logging
+
 import requests
 
 from app.api.routes import api_bp
-from app.database import db_session
+from app.database import handle_db_exceptions
 from app.services import athlete as athlete_service
 from config import config
 from flask import jsonify, request
 
+logger = logging.getLogger(__name__)
 
-@api_bp.route('/exchange_token', methods=['GET'])
+
+@api_bp.get('/exchange_token')
+@handle_db_exceptions
 def exchange_token():
     """Handle Strava OAuth authorization callback"""
 
@@ -47,7 +52,7 @@ def exchange_token():
 
     athlete_data = token_data.get('athlete', {})
 
-    athlete_repo = athlete_service.AthleteRepository(db_session)
+    athlete_repo = athlete_service.AthleteRepository()
 
     msg = f"Exchanged token for athlete {athlete_data.get('id', 'unknown')}"
 
@@ -69,8 +74,6 @@ def exchange_token():
         )
         msg += " (new athlete created)"
         created = True
-
-    db_session.commit()
 
     return jsonify({
         "success": True,

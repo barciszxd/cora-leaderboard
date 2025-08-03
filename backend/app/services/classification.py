@@ -1,11 +1,12 @@
+"""Classification Service for retrieving the general classification of athletes over a season."""
 from typing import Any, Generator
 
+from app.database import get_db_session, retry_db_operation
 from app.helpers import Gender, TimeSpan
 from app.models.athlete import Athlete
 from app.models.challenge import Challenge
 from app.models.effort import Effort
 from app.services.results import ResultService
-from sqlalchemy.orm import Session
 
 
 class ClassificationService:
@@ -13,14 +14,16 @@ class ClassificationService:
 
     def __init__(self, season_time_span: TimeSpan):
         """Initialize ClassificationService with a ResultService instance."""
-        self.season_time_span = season_time_span
-        self.efforts: list[Effort] = []
-        self.athletes: list[tuple[int, str, str, str]] = []
-        self.challenges: list[Challenge] = []
-        self.total_points: dict[int, list[int]] = {}  # Maps athlete_id to [climb_points, sprint_points]
+        self.season_time_span: TimeSpan                        = season_time_span
+        self.efforts         : list[Effort]                    = []   # List of efforts within the season time span
+        self.athletes        : list[tuple[int, str, str, str]] = []   # List of tuples (athlete_id, firstname, lastname, sex)
+        self.challenges      : list[Challenge]                 = []   # Challenges within the season time span
+        self.total_points    : dict[int, list[int]]            = {}   # Maps athlete_id to [climb_points, sprint_points]
 
-    def query_from_db(self, session: Session) -> None:
+    @retry_db_operation(max_retries=3, delay=1)
+    def query_from_db(self) -> None:
         """Query the database to populate the service with efforts, athletes, and challenges."""
+        session = get_db_session()
         # Get all challenges within the season time span
         self.challenges = session.query(Challenge).filter(
             Challenge.start_date >= self.season_time_span.start,
@@ -72,9 +75,8 @@ class ClassificationService:
             ]
             challenge_athletes = {effort.athlete_id for effort in challenge_efforts}
 
-            result_service = ResultService()
+            result_service = ResultService(challenge.id)    # type: ignore
             result_service.populate(
-                challenge_id      = challenge.id,           # type: ignore
                 climb_segment_id  = climb_segment,          # type: ignore
                 sprint_segment_id = sprint_segment,         # type: ignore
                 efforts           = challenge_efforts,

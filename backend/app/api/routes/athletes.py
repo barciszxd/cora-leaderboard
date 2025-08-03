@@ -1,14 +1,13 @@
 import app.services.athlete as athlete_service
 
 from app.api.routes import api_bp
-from app.database import db_session
 from flask import jsonify
 
 
-@api_bp.route('/athletes', methods=['GET'])
+@api_bp.get('/athletes')
 def get_athletes():
     """Get all athletes"""
-    athlete_repo = athlete_service.AthleteRepository(db_session)
+    athlete_repo = athlete_service.AthleteRepository()
     athletes = athlete_repo.get_all()
 
     if not athletes:

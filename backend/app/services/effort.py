@@ -1,22 +1,25 @@
+"""Effort Repository for managing Strava segment efforts in the database."""
 from datetime import datetime
 
 import requests
 
+from app.database import get_db_session, retry_db_operation
 from app.models.effort import Effort
 from app.services.athlete import AthleteRepository
 from app.services.challenge import ChallengeRepository
 from config import config
-from sqlalchemy.orm import Session
 
 
 class EffortRepository:
     """Repository for managing Effort records in the database."""
 
-    def __init__(self, session: Session):
-        self.session = session
+    def __init__(self):
+        self.session = get_db_session()
 
     def add(self, activity_id: int, athlete_id: int) -> bool:
         """Add a new effort record for the given activity ID.
+
+
 
         Args:
             activity_id (int): The ID of the activity.
@@ -26,66 +29,60 @@ class EffortRepository:
             bool: True if the effort was added, False if it already exists or current challenge not among segment efforts.
         """
 
-        existing_efforts = self.get_efforts_by_activity_id(activity_id)
-
-        if existing_efforts:
+        # If there are already efforts for this activity, do not add again
+        if self.get_efforts_by_activity_id(activity_id):
             return False
 
         # Check if any challenge is currently active
-        challenge_repo = ChallengeRepository(self.session)
-        if not (current_challenge := challenge_repo.get_current()):
+        if not (current_challenge := ChallengeRepository().get_current()):
             return False
 
         # Fetch activity data from Strava API
-        athlete_repo = AthleteRepository(self.session)
+        athlete_repo = AthleteRepository()
         access_token = athlete_repo.get_access_token(athlete_id)
         response = requests.get(
             url     = f"{config.STRAVA_API_URL}/activities/{activity_id}?include_all_efforts=true",
             headers = {"Authorization": f"Bearer {access_token}"},
             timeout = 100,
             verify  = config.SSL_ENABLE)
-        response.raise_for_status()
+
+        if not response.ok:
+            return False
+
         activity_data = response.json()
 
-        # Check if the current challenge segment is among the segment efforts of the activity
+        # Check if the activity has any segment efforts
         if not (segment_efforts := activity_data.get('segment_efforts')):
             return False
 
+        # Check any segment effort belongs to the current challenge
         effort_saved = False
-
-        for effort in segment_efforts:
-            if effort.get('segment', {}).get('id') == current_challenge.segment_id:
-                self._save_effort(effort)
+        for effort_data in segment_efforts:
+            effort_segment_id = effort_data.get('segment', {}).get('id')
+            if effort_segment_id in [current_challenge.climb_segment_id, current_challenge.sprint_segment_id]:
+                self._save_effort(effort_data)
                 effort_saved = True
 
         return effort_saved
 
-    def delete_efforts_by_activity_id(self, activity_id: int) -> bool:
+    @retry_db_operation(max_retries=3, delay=1)
+    def delete_efforts_by_activity_id(self, activity_id: int) -> int:
         """Remove all effort records related with given activity ID."""
-        efforts_to_remove = self.session.query(Effort).filter_by(activity_id=activity_id).all()
+        deleted_count = self.session.query(Effort).filter_by(activity_id=activity_id).delete()
+        return deleted_count
 
-        if efforts_to_remove:
-            for effort in efforts_to_remove:
-                self.session.delete(effort)
-            return True
-
-        return False
-
-    def delete_efforts_by_athlete_id(self, athlete_id: int) -> bool:
+    @retry_db_operation(max_retries=3, delay=1)
+    def delete_efforts_by_athlete_id(self, athlete_id: int) -> int:
         """Remove all effort records related with given athlete ID."""
-        efforts_to_remove = self.session.query(Effort).filter_by(athlete_id=athlete_id).all()
+        deleted_count = self.session.query(Effort).filter_by(athlete_id=athlete_id).delete()
+        return deleted_count
 
-        if efforts_to_remove:
-            for effort in efforts_to_remove:
-                self.session.delete(effort)
-            return True
-
-        return False
-
+    @retry_db_operation(max_retries=3, delay=1)
     def get_efforts_by_activity_id(self, activity_id: int) -> list[Effort]:
         """Retrieve all efforts related to a specific activity ID."""
         return self.session.query(Effort).filter_by(activity_id=activity_id).all()
 
+    @retry_db_operation(max_retries=3, delay=1)
     def get_efforts_by_segment_id_and_date(self, segment_id: int, start_date: datetime, end_date: datetime) -> list[Effort]:
         """Retrieve all efforts for a specific segment within a date range."""
         return self.session.query(Effort).filter(
@@ -94,6 +91,7 @@ class EffortRepository:
             Effort.start_date <= end_date
         ).all()
 
+    @retry_db_operation(max_retries=3, delay=1)
     def _save_effort(self, data: dict) -> None:
         """Save a single effort record to the database."""
 

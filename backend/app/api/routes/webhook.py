@@ -1,13 +1,17 @@
+"""This route handles Strava webhook events and subscription callbacks."""
+import logging
+
 import app.services.athlete as athlete_service
 import app.services.effort as effort_service
 
 from app.api.routes import api_bp
-from app.database import db_session
 from config import config
 from flask import jsonify, request
 
+logger = logging.getLogger(__name__)
 
-@api_bp.route('/webhook', methods=['GET'])
+
+@api_bp.get('/webhook')
 def subscription_callback():
     """Handle Strava subscription callback"""
 
@@ -21,7 +25,7 @@ def subscription_callback():
     return jsonify({"success": False, "error": "Bad request"}), 403
 
 
-@api_bp.route('/webhook', methods=['POST'])
+@api_bp.post('/webhook')
 def webhook():
     """Handle Strava webhook events"""
     data = request.get_json()
@@ -29,7 +33,7 @@ def webhook():
     if not data:
         return jsonify({"success": False, "error": "No data received"}), 400
 
-    print(f"Received webhook data: {data}")
+    logger.info("Received webhook data: %s", data)
 
     object_type = data.get('object_type')
     aspect_type = data.get('aspect_type')
@@ -38,11 +42,10 @@ def webhook():
     # handle activity-related events
     if object_type == 'activity':
         activity_id = data.get('object_id')
-        effort_repo = effort_service.EffortRepository(db_session)
+        effort_repo = effort_service.EffortRepository()
 
         if aspect_type == 'create':
             effort_added = effort_repo.add(activity_id, athlete_id)
-            db_session.commit()
 
             msg = f"New activity {activity_id} of athlete {athlete_id} registered. "
 
@@ -60,23 +63,16 @@ def webhook():
             private = updates.get('private', False)
 
             if private and private == "true":
-                efforts_deleted = effort_repo.delete_efforts_by_activity_id(activity_id)
-                db_session.commit()
+                deleted_efforts = effort_repo.delete_efforts_by_activity_id(activity_id)
 
                 msg = f"Setting activity {activity_id} to private registered. "
 
-                if efforts_deleted:
-                    msg += "All related efforts were deleted."
-                    status_code = 200
-                else:
-                    msg += "No efforts to delete from leaderboard."
-                    status_code = 200
+                msg += f"{deleted_efforts} related efforts were deleted." if deleted_efforts else "No efforts to delete from leaderboard."
 
-                return jsonify({"success": True, "message": msg}), status_code
+                return jsonify({"success": True, "message": msg}), 200
 
             if private and private == "false":
                 effort_added = effort_repo.add(activity_id, athlete_id)
-                db_session.commit()
 
                 msg = f"Setting activity {activity_id} to public registered. "
 
@@ -90,44 +86,30 @@ def webhook():
                 return jsonify({"success": True, "message": msg}), status_code
 
         if aspect_type == 'delete':
-            efforts_deleted = effort_repo.delete_efforts_by_activity_id(activity_id)
-            db_session.commit()
+            deleted_efforts = effort_repo.delete_efforts_by_activity_id(activity_id)
 
-            msg = f"Deleted activity {activity_id}. "
+            msg = f"Deletion of activity {activity_id} registered."
+            msg += f"{deleted_efforts} efforts deleted." if deleted_efforts else "No efforts to delete."
 
-            if efforts_deleted:
-                msg += "All related efforts were deleted."
-                status_code = 200
-            else:
-                msg += "No efforts to delete from leaderboard."
-                status_code = 200
-
-            return jsonify({"success": True, "message": msg}), status_code
+            return jsonify({"success": True, "message": msg}), 200
 
         return jsonify({"success": False, "error": "Unsupported aspect type for activity"}), 400
 
     # handle athlete-related events
     if object_type == 'athlete':
         if aspect_type == 'update':
-            effort_repo = effort_service.EffortRepository(db_session)
-            athlete_repo = athlete_service.AthleteRepository(db_session)
+            effort_repo = effort_service.EffortRepository()
+            athlete_repo = athlete_service.AthleteRepository()
             updates = data.get('updates', {})
 
+            # handles the event of athlete deathorizating the application
             if (authorized := updates.get('authorized', False)) and authorized == "false":
                 athlete_deleted = athlete_repo.delete_by_id(athlete_id)
-                efforts_deleted = effort_repo.delete_efforts_by_athlete_id(athlete_id)
-                db_session.commit()
+                deleted_efforts = effort_repo.delete_efforts_by_athlete_id(athlete_id)
+
                 msg = f"Athlete {athlete_id} deauthorized the application. "
-
-                if athlete_deleted:
-                    msg += "Athlete record deleted. "
-                else:
-                    msg += "No athlete record to delete. "
-
-                if efforts_deleted:
-                    msg += "All related efforts deleted."
-                else:
-                    msg += "No efforts to delete from leaderboard."
+                msg += "Athlete record deleted. " if athlete_deleted else "No athlete record to delete. "
+                msg += f"{deleted_efforts} his/her efforts deleted." if deleted_efforts else "No efforts to delete."
 
                 return jsonify({"success": True, "message": msg}), 200
 

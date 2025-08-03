@@ -1,7 +1,5 @@
 """Flask application factory"""
-import importlib
-
-from app.database import init_db
+from app.database import close_db_session, init_db
 from config import config
 from flask import Flask
 from flask_cors import CORS
@@ -34,6 +32,7 @@ def create_app():
 
 
 app = create_app()
+app.teardown_appcontext(close_db_session)
 
 if __name__ == '__main__':
     app.run()
