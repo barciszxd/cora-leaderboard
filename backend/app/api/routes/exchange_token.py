@@ -37,21 +37,18 @@ def exchange_token():
         'grant_type': 'authorization_code'
     }
 
-    try:
-        response = requests.post(
-            url     = token_url,
-            data    = token_data,
-            timeout = 100,
-            verify  = config.SSL_ENABLE
-        )
-        response.raise_for_status()
-        token_data = response.json()
-
-    except requests.exceptions.RequestException as e:
+    response = requests.post(
+        url     = token_url,
+        data    = token_data,
+        timeout = 100,
+        verify  = config.SSL_ENABLE
+    )
+    if not response.ok:
         return jsonify({"success": False, "error": f"Failed to exchange token: {str(e)}"}), 500
 
-    athlete_data = token_data.get('athlete', {})
+    token_data = response.json()
 
+    athlete_data = token_data.get('athlete', {})
     athlete_repo = athlete_service.AthleteRepository()
 
     msg = f"Exchanged token for athlete {athlete_data.get('id', 'unknown')}"
@@ -78,6 +75,6 @@ def exchange_token():
     return jsonify({
         "success": True,
         "message": msg,
-        "athlete_created": created,
+        "athlete_created": created,  # True if a new athlete was created, False if updated
         "athlete": athlete_data
     }), 200
