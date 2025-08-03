@@ -4,6 +4,8 @@ from datetime import datetime
 import requests
 
 from app.database import get_db_session, retry_db_operation
+from app.helpers import TimeSpan
+from app.models.challenge import Challenge
 from app.models.effort import Effort
 from app.services.athlete import AthleteRepository
 from app.services.challenge import ChallengeRepository
@@ -18,8 +20,6 @@ class EffortRepository:
 
     def add(self, activity_id: int, athlete_id: int) -> bool:
         """Add a new effort record for the given activity ID.
-
-
 
         Args:
             activity_id (int): The ID of the activity.
@@ -57,9 +57,10 @@ class EffortRepository:
 
         # Check any segment effort belongs to the current challenge
         effort_saved = False
+        effort_filter = EffortFilter(current_challenge)
+
         for effort_data in segment_efforts:
-            effort_segment_id = effort_data.get('segment', {}).get('id')
-            if effort_segment_id in [current_challenge.climb_segment_id, current_challenge.sprint_segment_id]:
+            if effort_filter(effort_data):
                 self._save_effort(effort_data)
                 effort_saved = True
 
@@ -105,3 +106,30 @@ class EffortRepository:
         )
 
         self.session.add(effort)
+
+
+class EffortFilter:
+    """Filter the effort based on given challange."""
+
+    def __init__(self, challenge: Challenge):
+        """Initialize with challenge."""
+        self.challenge = challenge
+        self._segment_ids = {challenge.climb_segment_id, challenge.sprint_segment_id}
+        self._challenge_timespan = TimeSpan(
+            start = challenge.start_date,  # type: ignore
+            end   = challenge.end_date     # type: ignore
+        )
+
+    def __call__(self, effort_data: dict) -> bool:
+        """Check if the effort matches the challenge filter criteria."""
+
+        effort_segment_id: int | None = effort_data.get('segment', {}).get('id')
+        effort_start_date: datetime | None = effort_data.get('start_date')
+
+        if not effort_segment_id or effort_segment_id not in self._segment_ids:
+            return False
+
+        if not effort_start_date or effort_start_date not in self._challenge_timespan:
+            return False
+
+        return True
