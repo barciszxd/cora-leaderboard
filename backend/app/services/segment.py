@@ -1,6 +1,7 @@
 import requests
 
 from app.database import get_db_session, retry_db_operation
+from app.models.challenge import Challenge
 from app.models.segment import Segment
 from app.services.athlete import AthleteRepository
 from config import config
@@ -36,6 +37,14 @@ class SegmentRepository:
         """Get segment by ID."""
         return self.session.query(Segment).filter_by(id=segment_id).first()
 
+    def get_for_challenge(self, challenge: Challenge) -> tuple[Segment | None, Segment | None]:
+        """Get segment details for a challenge."""
+
+        climb_segment = self.get_by_id(challenge.climb_segment_id)  # type: ignore
+        sprint_segment = self.get_by_id(challenge.sprint_segment_id)  # type: ignore
+
+        return sprint_segment, climb_segment
+
     def _request_segment_details(self, segment_id: int) -> dict | None:
         """Get segment details from STRAVA."""
 
@@ -64,3 +73,13 @@ class SegmentRepository:
         )
         self.session.add(segment)
         return segment
+
+    @staticmethod
+    def to_dict(segment: Segment) -> dict:
+        """Convert a Segment object to a dictionary."""
+        return {
+            "id": segment.id,
+            "name": segment.name,
+            "distance": segment.distance,
+            "elevation_gain": segment.elevation_gain
+        }

@@ -42,15 +42,23 @@ def get_challenges():
     for challenge in challenges:
         now = datetime.now(timezone.utc)
         time_span = TimeSpan(challenge.start_date, challenge.end_date)  # type: ignore
-        climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
+
+        segments = segment_repo.get_for_challenge(challenge)
+
+        segment_dicts = []
+
+        for segment, segment_type in zip(segments, ['sprint', 'climb']):
+            segment_dict = segment_service.SegmentRepository.to_dict(segment) if segment else {}
+            segment_dict["type"] = segment_type
+            segment_dicts.append(segment_dict)
 
         challenge_dict = {
             "id"            : challenge.id,
             "name"          : challenge.name,
             "start_date"    : challenge.start_date.isoformat(),
             "end_date"      : challenge.end_date.isoformat(),
-            "climb_segment" : climb_segment_dict,
-            "sprint_segment": sprint_segment_dict,
+            "sprint_segment": segment_dicts[0],
+            "climb_segment" : segment_dicts[1],
             "status"        : "upcoming" if now < time_span else "completed" if now > time_span else "active"
         }
 
@@ -68,9 +76,14 @@ def get_challenge_by_id(challenge_id):
     if not challenge:
         return jsonify({"success": False, "error": "Challenge not found"}), 404
 
-    segment_repo = segment_service.SegmentRepository()
+    segments = segment_service.SegmentRepository().get_for_challenge(challenge)
 
-    climb_segment_dict, sprint_segment_dict = get_segments_for_challenge(challenge, segment_repo)
+    segment_dicts = []
+
+    for segment, segment_type in zip(segments, ['sprint', 'climb']):
+        segment_dict = segment_service.SegmentRepository.to_dict(segment) if segment else {}
+        segment_dict["type"] = segment_type
+        segment_dicts.append(segment_dict)
 
     now = datetime.now(timezone.utc)
     time_span = TimeSpan(challenge.start_date, challenge.end_date)  # type: ignore
@@ -80,8 +93,8 @@ def get_challenge_by_id(challenge_id):
         "name"          : challenge.name,
         "start_date"    : challenge.start_date.isoformat(),
         "end_date"      : challenge.end_date.isoformat(),
-        "climb_segment" : climb_segment_dict,
-        "sprint_segment": sprint_segment_dict,
+        "sprint_segment": segment_dicts[0],
+        "climb_segment" : segment_dicts[1],
         "status"        : "upcoming" if now < time_span else "completed" if now > time_span else "active"
     }
 
@@ -116,29 +129,3 @@ def get_challenge_results(challenge_id):
             results.extend(result_service.yield_results(segment_type, Gender(gender)))
 
     return jsonify(results), 200
-
-
-def get_segments_for_challenge(
-        challenge: challenge_service.Challenge,
-        segment_repo: segment_service.SegmentRepository) -> tuple[dict | None, dict | None]:
-    """Get segment details for a challenge."""
-    # TODO: Move this to the segments service
-    climb_segment = segment_repo.get_by_id(challenge.climb_segment_id)  # type: ignore
-    climb_segment_dict = {
-        "id": climb_segment.id,
-        "name": climb_segment.name,
-        "type": "climb",
-        "distance": climb_segment.distance,
-        "elevation_gain": climb_segment.elevation_gain
-    } if climb_segment else None
-
-    sprint_segment = segment_repo.get_by_id(challenge.sprint_segment_id)    # type: ignore
-    sprint_segment_dict = {
-        "id": sprint_segment.id,
-        "name": sprint_segment.name,
-        "type": "sprint",
-        "distance": sprint_segment.distance,
-        "elevation_gain": sprint_segment.elevation_gain
-    } if sprint_segment else None
-
-    return climb_segment_dict, sprint_segment_dict
