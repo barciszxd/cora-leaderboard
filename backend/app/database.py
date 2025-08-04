@@ -5,7 +5,7 @@ import logging
 import time
 
 from config import config
-from flask import g, jsonify
+from flask import g
 from sqlalchemy import create_engine
 from sqlalchemy.exc import DisconnectionError, OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
@@ -16,19 +16,19 @@ logger = logging.getLogger(__name__)
 # Create database engine with more robust connection settings
 engine = create_engine(
     config.DATABASE_URL,
-    echo=False,  # Disable in production for performance
-    poolclass=QueuePool,
-    pool_size=5,  # Reduced for free tier
-    max_overflow=10,  # Reduced for free tier
-    pool_pre_ping=True,
-    pool_recycle=1800,  # 30 minutes instead of 1 hour
-    pool_timeout=30,  # Add explicit pool timeout
-    connect_args={
-        "connect_timeout": 30,  # Increased timeout
+    echo          = False,
+    poolclass     = QueuePool,
+    pool_size     = 5,
+    max_overflow  = 10,
+    pool_pre_ping = True,
+    pool_recycle  = 1800,
+    pool_timeout  = 30,
+    connect_args  = {
+        "connect_timeout": 30,
         "application_name": "cora_leaderboard",
-        "options": "-c statement_timeout=30000",  # 30 second statement timeout
-        "keepalives_idle": "600",  # 10 minutes
-        "keepalives_interval": "30",  # 30 seconds
+        "options": "-c statement_timeout=30000",
+        "keepalives_idle": "600",
+        "keepalives_interval": "30",
         "keepalives_count": "3"
     }
 )
@@ -92,29 +92,6 @@ def retry_db_operation(max_retries=3, delay=1):
             return None
         return wrapper
     return decorator
-
-
-def handle_db_exceptions(f):
-    """Decorator to handle database exceptions in API routes."""
-    @functools.wraps(f)
-    def decorated_function(*args, **kwargs):
-        try:
-            return f(*args, **kwargs)
-        except (OperationalError, DisconnectionError) as e:
-            logger.error("Database connection issue in %s: %s", f.__name__, e)
-            return jsonify({
-                "success": False,
-                "error": "Database connection issue. Please try again.",
-                "details": str(e)
-            }), 503
-        except Exception as e:
-            logger.error("Unexpected error in %s: %s", f.__name__, e)
-            return jsonify({
-                "success": False,
-                "error": "Internal server error. Please try again.",
-                "details": str(e)
-            }), 500
-    return decorated_function
 
 
 @retry_db_operation(max_retries=3, delay=2)

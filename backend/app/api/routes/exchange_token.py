@@ -1,9 +1,9 @@
+"""Module for handling Strava OAuth token exchange"""
 import logging
 
 import requests
 
 from app.api.routes import api_bp
-from app.database import handle_db_exceptions
 from app.services import athlete as athlete_service
 from config import config
 from flask import jsonify, request
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 @api_bp.get('/exchange_token')
-@handle_db_exceptions
 def exchange_token():
     """Handle Strava OAuth authorization callback"""
 
@@ -44,7 +43,7 @@ def exchange_token():
         verify  = config.SSL_ENABLE
     )
     if not response.ok:
-        return jsonify({"success": False, "error": f"Failed to exchange token: {str(e)}"}), 500
+        return jsonify({"success": False, "error": "Could not exchange token: STRAVA didn't respond"}), 500
 
     token_data = response.json()
 

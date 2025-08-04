@@ -1,13 +1,28 @@
 """Flask application factory"""
+import logging
+
 from app.database import close_db_session, init_db
 from config import config
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from sqlalchemy.exc import SQLAlchemyError
+
+logger = logging.getLogger(__name__)
 
 
 def create_app():
     """Create and configure Flask application"""
     flask_app = Flask(__name__)
+
+    @flask_app.errorhandler(SQLAlchemyError)
+    def handle_database_error(error):
+        """Global database exception handler"""
+        logger.error("Database error: %s", error)
+        return jsonify({
+            "success": False,
+            "error": "Database connection issue. Please try again.",
+            "details": str(error)
+        }), 503
 
     # Initialize database tables
     init_db()
