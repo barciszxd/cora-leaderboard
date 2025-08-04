@@ -12,20 +12,26 @@ from sqlalchemy.pool import QueuePool
 
 logger = logging.getLogger(__name__)
 
-# Create database engine
+# Create database engine with more robust connection settings
 engine = create_engine(
     config.DATABASE_URL,
-    echo=True,
+    echo=False,  # Disable in production for performance
     poolclass=QueuePool,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,  # Reduced for free tier
+    max_overflow=10,  # Reduced for free tier
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=1800,  # 30 minutes instead of 1 hour
+    pool_timeout=30,  # Add explicit pool timeout
     connect_args={
-        "connect_timeout": 10,
-        "application_name": "cora_leaderboard"
+        "connect_timeout": 30,  # Increased timeout
+        "application_name": "cora_leaderboard",
+        "options": "-c statement_timeout=30000",  # 30 second statement timeout
+        "keepalives_idle": "600",  # 10 minutes
+        "keepalives_interval": "30",  # 30 seconds
+        "keepalives_count": "3"
     }
 )
+
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -56,6 +62,7 @@ def close_db_session(error=None) -> None:
 def retry_db_operation(max_retries=3, delay=1):
     """Decorator to retry database operations on connection failures"""
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             for attempt in range(max_retries):
                 try:
@@ -97,11 +104,31 @@ def handle_db_exceptions(f):
     return decorated_function
 
 
+@retry_db_operation(max_retries=3, delay=2)
 def init_db():
-    """Initialize database tables"""
-    from app.models import Base
-    from app.models.athlete import Athlete
-    from app.models.challenge import Challenge
-    from app.models.effort import Effort
-    from app.models.segment import Segment
-    Base.metadata.create_all(bind=engine)
+    """Initialize database tables with retry logic"""
+    try:
+        from app.models import Base
+        from app.models.athlete import Athlete
+        from app.models.challenge import Challenge
+        from app.models.effort import Effort
+        from app.models.segment import Segment
+
+        logger.info("Attempting to create database tables...")
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error("Failed to initialize database: %s", e)
+        raise
+
+
+def test_db_connection():
+    """Test database connection"""
+    try:
+        with engine.connect() as conn:
+            conn.execute("SELECT 1")
+        logger.info("Database connection test successful")
+        return True
+    except Exception as e:
+        logger.error("Database connection test failed: %s", e)
+        return False
