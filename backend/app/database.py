@@ -1,4 +1,5 @@
 """Database connection and session management for Flask application"""
+import atexit
 import functools
 import logging
 import time
@@ -57,6 +58,18 @@ def close_db_session(error=None) -> None:
             session.rollback()
         finally:
             session.close()
+
+
+def cleanup_db_connections():
+    """Close all database connections when the application shuts down"""
+    try:
+        engine.dispose()
+        logger.info("Database connections closed successfully")
+    except Exception as e:
+        logger.error("Error closing database connections: %s", e)
+
+
+atexit.register(cleanup_db_connections)
 
 
 def retry_db_operation(max_retries=3, delay=1):
@@ -120,15 +133,3 @@ def init_db():
     except Exception as e:
         logger.error("Failed to initialize database: %s", e)
         raise
-
-
-def test_db_connection():
-    """Test database connection"""
-    try:
-        with engine.connect() as conn:
-            conn.execute("SELECT 1")
-        logger.info("Database connection test successful")
-        return True
-    except Exception as e:
-        logger.error("Database connection test failed: %s", e)
-        return False
