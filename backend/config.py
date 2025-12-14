@@ -11,6 +11,7 @@ class Config:
     STRAVA_VERIFY_TOKEN = os.environ.get('STRAVA_VERIFY_TOKEN')
     STRAVA_API_URL = "https://www.strava.com/api/v3"
     POINTS = [15, 12, 10, 8, 6, 4, 2, 1]  # Points for top 8 positions
+    MAX_COUNTED_RESULTS = 8  # Max number of results counted towards total classification
     TOKEN_ENC_KEY = os.environ.get('TOKEN_ENC_KEY')  # Base64-encoded 32-byte key
 
 
