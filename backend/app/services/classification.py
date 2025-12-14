@@ -7,6 +7,71 @@ from app.models.athlete import Athlete
 from app.models.challenge import Challenge
 from app.models.effort import Effort
 from app.services.results import ResultService
+from config import Config
+
+
+class ClassificationResults:
+    """Class for handling classification results for a specific athlete."""
+
+    def __init__(self, athlete_id: int):
+        self.athlete_id = athlete_id
+
+        self._completed_sprints : list[tuple[int, int]] = []  # List like (challenge_id, points)
+        self._completed_climbs  : list[tuple[int, int]] = []  # List like (challenge_id, points)
+
+    def add_result(self, challenge_id: int, segment_type: str, points: int) -> None:
+        """Add a result for the athlete.
+
+        Args:
+            segment_type (str): The type of segment ("sprint" or "climb").
+            points (int): The points earned in the segment.
+        """
+        if segment_type == "sprint":
+            self._completed_sprints.append((challenge_id, points))
+
+        elif segment_type == "climb":
+            self._completed_climbs.append((challenge_id, points))
+
+        else:
+            raise ValueError(f"Invalid segment type: {segment_type}")
+
+    @property
+    def sprint_points(self) -> int:
+        """Get total sprint points.
+
+        Only the top N results are counted, where N is defined in Config.MAX_COUNTED_RESULTS.
+        """
+        self._completed_sprints.sort(key=lambda x: x[1], reverse=True)
+        return sum(points for _, points in self._completed_sprints[:Config.MAX_COUNTED_RESULTS])
+
+    @property
+    def climb_points(self) -> int:
+        """Get total climb points.
+
+        Only the top N results are counted, where N is defined in Config.MAX_COUNTED_RESULTS.
+        """
+        self._completed_climbs.sort(key=lambda x: x[1], reverse=True)
+        return sum(points for _, points in self._completed_climbs[:Config.MAX_COUNTED_RESULTS])
+
+    @property
+    def completed_sprints_count(self) -> int:
+        """Get count of completed sprints."""
+        return len(self._completed_sprints)
+
+    @property
+    def completed_climbs_count(self) -> int:
+        """Get count of completed climbs."""
+        return len(self._completed_climbs)
+
+    @property
+    def counted_sprints_count(self) -> int:
+        """Get count of counted sprints."""
+        return min(len(self._completed_sprints), Config.MAX_COUNTED_RESULTS)
+
+    @property
+    def counted_climbs_count(self) -> int:
+        """Get count of counted climbs."""
+        return min(len(self._completed_climbs), Config.MAX_COUNTED_RESULTS)
 
 
 class ClassificationService:
@@ -18,7 +83,8 @@ class ClassificationService:
         self.efforts         : list[Effort]                    = []   # List of efforts within the season time span
         self.athletes        : list[tuple[int, str, str, str]] = []   # List of tuples (athlete_id, firstname, lastname, sex)
         self.challenges      : list[Challenge]                 = []   # Challenges within the season time span
-        self.total_points    : dict[int, list[int]]            = {}   # Maps athlete_id to [climb_points, sprint_points]
+
+        self._results : dict[int, ClassificationResults] = {}  # Maps athlete_id to classification results for that athlete
 
     @retry_db_operation(max_retries=3, delay=1)
     def query_from_db(self) -> None:
@@ -48,7 +114,7 @@ class ClassificationService:
         ).all()
 
         for athlete in self.athletes:
-            self.total_points[athlete[0]] = [0, 0]
+            self._results[athlete[0]] = ClassificationResults(athlete[0])
 
     @property
     def athlete_names(self) -> dict[int, str]:
@@ -80,14 +146,17 @@ class ClassificationService:
                 climb_segment_id  = climb_segment,          # type: ignore
                 sprint_segment_id = sprint_segment,         # type: ignore
                 efforts           = challenge_efforts,
-                athletes          = list(filter(lambda a: a[0] in challenge_athletes, self.athletes))
+                athletes          = list(filter(lambda a: a[0] in challenge_athletes, self.athletes))   # pylint: disable=cell-var-from-loop
             )
 
             for segment_type in challenge_types:
-                for result in result_service.yield_simplified_results(segment_type, gender):
-                    athlete_id = result[0]
+                for result_data in result_service.yield_simplified_results(segment_type, gender):
+                    athlete_id = result_data[0]
 
-                    self.total_points[athlete_id][challenge_types.index(segment_type)] += result[2]
+                    if not athlete_id in self._results:
+                        self._results[athlete_id] = ClassificationResults(athlete_id)
+
+                    self._results[athlete_id].add_result(challenge.id, segment_type, result_data[2])
 
         athlete_names = self.athlete_names
         athlete_genders = self.athlete_genders
@@ -96,10 +165,16 @@ class ClassificationService:
             if athlete[3] != gender:
                 continue
             ath_id = athlete[0]
+            results = self._results.get(ath_id, ClassificationResults(ath_id))
+
             yield {
                 "athlete_id": ath_id,
                 "athlete_name": athlete_names[ath_id],
                 "gender": athlete_genders[ath_id],
-                "total_sprint_points": self.total_points[ath_id][0],
-                "total_climb_points": self.total_points[ath_id][1],
+                "total_sprint_points": results.sprint_points,
+                "total_climb_points": results.climb_points,
+                "completed_sprints": results.completed_sprints_count,
+                "completed_climbs": results.completed_climbs_count,
+                "counted_sprints": results.counted_sprints_count,
+                "counted_climbs": results.counted_climbs_count
             }
