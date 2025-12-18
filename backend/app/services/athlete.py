@@ -7,6 +7,7 @@ import requests
 
 from app.database import get_db_session, retry_db_operation
 from app.models.athlete import Athlete
+from app.services.utilities import decrypt_token, encrypt_token
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -32,9 +33,11 @@ class AthleteRepository:
         athlete.firstname     = athlete_data.get('firstname', athlete.firstname)
         athlete.lastname      = athlete_data.get('lastname', athlete.lastname)
         athlete.sex           = athlete_data.get('sex', athlete.sex)
-        athlete.access_token  = token_data.get('access_token', athlete.access_token)
-        athlete.refresh_token = token_data.get('refresh_token', athlete.refresh_token)
-        athlete.expires_at    = token_data.get('expires_at', athlete.expires_at)
+
+        if 'access_token' in token_data and 'refresh_token' in token_data and 'expires_at' in token_data:
+            athlete.access_token  = encrypt_token(token_data['access_token'])
+            athlete.refresh_token = encrypt_token(token_data['refresh_token'])
+            athlete.expires_at    = token_data['expires_at']
 
         return athlete
 
@@ -46,9 +49,13 @@ class AthleteRepository:
 
     def update_token(self, athlete: Athlete, token_data: dict) -> Athlete:
         """Update the access token for an athlete."""
-        athlete.access_token  = token_data.get('access_token', athlete.access_token)
-        athlete.refresh_token = token_data.get('refresh_token', athlete.refresh_token)
-        athlete.expires_at    = token_data.get('expires_at', athlete.expires_at)
+
+        if 'access_token' not in token_data or 'refresh_token' not in token_data or 'expires_at' not in token_data:
+            return athlete
+
+        athlete.access_token  = encrypt_token(token_data['access_token'])
+        athlete.refresh_token = encrypt_token(token_data['refresh_token'])
+        athlete.expires_at    = token_data['expires_at']
 
         return athlete
 
@@ -80,10 +87,11 @@ class AthleteRepository:
 
         if athlete.expires_at < datetime.now(timezone.utc).timestamp():  # type: ignore
             token_url = "https://www.strava.com/oauth/token"
+            refresh_token = decrypt_token(athlete.refresh_token)  # type: ignore
             request_body = {
                 'client_id': config.CLIENT_ID,
                 'client_secret': config.CLIENT_SECRET,
-                'refresh_token': athlete.refresh_token,
+                'refresh_token': refresh_token,
                 'grant_type': 'refresh_token'
             }
 
@@ -101,17 +109,17 @@ class AthleteRepository:
             token_data = response.json()
             self.update_token(athlete, token_data)
 
-        return athlete.access_token  # type: ignore
+        return decrypt_token(athlete.access_token)  # type: ignore
 
     @retry_db_operation(max_retries=3, delay=1)
-    def _save_athlete(self, athlete_data, token_data):
+    def _save_athlete(self, athlete_data: dict, token_data: dict):
         athlete = Athlete(
             id            = athlete_data['id'],
             firstname     = athlete_data.get('firstname'),
             lastname      = athlete_data.get('lastname'),
             sex           = athlete_data.get('sex'),
-            access_token  = token_data.get('access_token'),
-            refresh_token = token_data.get('refresh_token'),
+            access_token  = encrypt_token(token_data.get('access_token', "")),
+            refresh_token = encrypt_token(token_data.get('refresh_token', "")),
             expires_at    = token_data.get('expires_at'),
             token_type    = token_data.get('token_type', 'Bearer')
         )
