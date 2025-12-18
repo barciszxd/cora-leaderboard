@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from app.models import Base
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Integer, String, Text
 
 
 class Athlete(Base):
@@ -13,8 +13,8 @@ class Athlete(Base):
     firstname     = Column(String(100))
     lastname      = Column(String(100))
     sex           = Column(String(1))
-    access_token  = Column(String(255))
-    refresh_token = Column(String(255))
+    access_token  = Column(Text)
+    refresh_token = Column(Text)
     expires_at    = Column(Integer)  # Unix timestamp
     token_type    = Column(String(20), default='Bearer')
     created_at    = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
