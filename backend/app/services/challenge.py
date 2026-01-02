@@ -61,6 +61,12 @@ class ChallengeRepository:
         ).first()
 
     @retry_db_operation(max_retries=3, delay=1)
-    def get_all(self) -> list[Challenge]:
-        """Get all challenges."""
-        return self.session.query(Challenge).all()
+    def get_by_year(self, year: int) -> list[Challenge]:
+        """Get challenges by year."""
+        start_of_year = datetime(year, 1, 1, tzinfo=timezone.utc)
+        end_of_year   = datetime(year, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+
+        return self.session.query(Challenge).filter(
+            Challenge.start_date >= start_of_year,
+            Challenge.end_date <= end_of_year
+        ).all()
