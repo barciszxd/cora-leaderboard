@@ -27,9 +27,13 @@ def create_challenge():
 @api_bp.get('/challenges')
 def get_challenges():
     """Get all challenges"""
+
+    if not (year := request.args.get('y', type=int)):
+        year = datetime.now().year
+
     challenge_repo = challenge_service.ChallengeRepository()
 
-    challenges = challenge_repo.get_all()
+    challenges = challenge_repo.get_by_year(year)
 
     if not challenges:
         return jsonify({"success": False, "error": "No challenges found"}), 404
