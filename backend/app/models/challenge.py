@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from app.models import Base
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, Integer
 
 
 class Challenge(Base):
@@ -10,7 +10,6 @@ class Challenge(Base):
     __tablename__ = "challenges"
 
     id                = Column(Integer, primary_key=True, autoincrement=True)
-    name              = Column(String(255), nullable=False, unique=False)
     climb_segment_id  = Column(Integer, nullable=False)
     sprint_segment_id = Column(Integer, nullable=False)
     start_date        = Column(DateTime(timezone=True), nullable=False)
