@@ -60,7 +60,6 @@ def get_challenges():
 
         challenge_dict = {
             "id"            : challenge.id,
-            "name"          : challenge.name,
             "start_date"    : challenge.start_date.isoformat(),
             "end_date"      : challenge.end_date.isoformat(),
             "sprint_segment": segment_dicts[0],
@@ -96,7 +95,6 @@ def get_challenge_by_id(challenge_id):
 
     response = {
         "id"            : challenge.id,
-        "name"          : challenge.name,
         "start_date"    : challenge.start_date.isoformat(),
         "end_date"      : challenge.end_date.isoformat(),
         "sprint_segment": segment_dicts[0],
