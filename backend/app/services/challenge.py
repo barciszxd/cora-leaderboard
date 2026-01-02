@@ -25,7 +25,6 @@ class ChallengeRepository:
             return None
 
         challenge = Challenge(
-            name              = challenge_data.get('name', "Challenge"),
             climb_segment_id  = climb_segment_id,
             sprint_segment_id = sprint_segment_id,
             start_date        = challenge_data.get('start_date', datetime.now(timezone.utc)),
