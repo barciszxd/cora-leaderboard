@@ -11,15 +11,17 @@ def get_classification():
     """Get classification data"""
     gender = request.args.get('gender')
 
+    if not (year := request.args.get('y', type=int)):
+        year = datetime.now(timezone.utc).year
+
     if gender and gender not in Gender.values():
         return jsonify({"success": False, "error": "Invalid or no gender"}), 400
 
     genders = [Gender(gender)] if gender else Gender
 
-    current_year = datetime.now(timezone.utc).year
     season_time_span = TimeSpan(
-        start=datetime(current_year, 1, 1, tzinfo=timezone.utc),
-        end=datetime(current_year, 12, 31, tzinfo=timezone.utc)
+        start=datetime(year, 1, 1, tzinfo=timezone.utc),
+        end=datetime(year, 12, 31, tzinfo=timezone.utc)
     )
 
     classification_service = ClassificationService(season_time_span)
