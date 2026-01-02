@@ -13,10 +13,16 @@ class ChallengeRepository:
         self.session = get_db_session()
 
     @retry_db_operation(max_retries=3, delay=1)
-    def add(self, challenge_data: dict) -> Challenge:
+    def add(self, challenge_data: dict) -> Challenge | None:
         """Add a new challenge."""
         climb_segment_id  = challenge_data.get('climb_segment_id', 0)
         sprint_segment_id = challenge_data.get('sprint_segment_id', 0)
+
+        segment_repo = SegmentRepository()
+        if segment_repo.create(climb_segment_id) is None:
+            return None
+        if segment_repo.create(sprint_segment_id) is None:
+            return None
 
         challenge = Challenge(
             name              = challenge_data.get('name', "Challenge"),
@@ -26,10 +32,6 @@ class ChallengeRepository:
             end_date          = challenge_data.get('end_date', datetime.now(timezone.utc) + timedelta(days=14))
         )
         self.session.add(challenge)
-
-        segment_repo = SegmentRepository()
-        segment_repo.create(climb_segment_id)
-        segment_repo.create(sprint_segment_id)
 
         return challenge
 

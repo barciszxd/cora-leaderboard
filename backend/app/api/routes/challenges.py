@@ -19,7 +19,9 @@ def create_challenge():
         return jsonify({"success": False, "error": "No data provided"}), 400
 
     challenge_repo = challenge_service.ChallengeRepository()
-    challenge_repo.add(data)
+
+    if challenge_repo.add(data) is None:
+        return jsonify({"success": False, "error": "Failed to create challenge"}), 400
 
     return jsonify({"success": True, "message": "Challenge created successfully."}), 201
 
