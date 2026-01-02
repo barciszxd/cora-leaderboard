@@ -65,11 +65,18 @@ class SegmentRepository:
     @retry_db_operation(max_retries=3, delay=1)
     def _save_segment(self, segment_data: dict) -> Segment:
         """Save segment data to the database."""
+
+        # Strava API bug: old segments may not have total_elevation_gain field; calculate it if missing
+        if (elevation_gain := segment_data.get('total_elevation_gain')) == 0.0:
+            elevation_gain = segment_data.get('elevation_high', 0) - segment_data.get('elevation_low', 0)
+            elevation_gain = round(max(elevation_gain, 0), 2)
+
+        # Create and save the Segment object
         segment = Segment(
             id             = segment_data.get('id'),
             name           = segment_data.get('name', 'Unknown Segment'),
             distance       = segment_data.get('distance', 0),
-            elevation_gain = segment_data.get('total_elevation_gain', 0)
+            elevation_gain = elevation_gain
         )
         self.session.add(segment)
         return segment
