@@ -42,6 +42,28 @@ class AthleteRepository:
         return athlete
 
     @retry_db_operation(max_retries=3, delay=1)
+    def revoke_tokens(self, athlete_id: int) -> bool:
+        """Nullify the Strava tokens for an athlete without deleting the record.
+
+        Used for soft sign-out: the athlete and all their efforts remain in the
+        database but the stored credentials are wiped so the athlete cannot be
+        re-authenticated silently.
+
+        Args:
+            athlete_id: The athlete's Strava ID.
+
+        Returns:
+            True if the athlete record was found and updated, False otherwise.
+        """
+        athlete = self.session.query(Athlete).filter_by(id=athlete_id).first()
+        if not athlete:
+            return False
+        athlete.access_token  = None
+        athlete.refresh_token = None
+        athlete.expires_at    = 0
+        return True
+
+    @retry_db_operation(max_retries=3, delay=1)
     def delete_by_id(self, athlete_id: int) -> bool:
         """Delete athlete by ID."""
         deleted_count = self.session.query(Athlete).filter_by(id=athlete_id).delete()

@@ -4,6 +4,7 @@ import logging
 import requests
 
 from app.api.routes import api_bp
+from app.auth import set_auth_cookie
 from app.services import athlete as athlete_service
 from config import config
 from flask import jsonify, request
@@ -71,9 +72,12 @@ def exchange_token():
         msg += " (new athlete created)"
         created = True
 
-    return jsonify({
-        "success": True,
-        "message": msg,
-        "athlete_created": created,  # True if a new athlete was created, False if updated
-        "athlete": athlete_data
-    }), 200
+    return set_auth_cookie(
+        jsonify({
+            "success": True,
+            "message": msg,
+            "athlete_created": created,  # True if a new athlete was created, False if updated
+            "athlete": athlete_data
+        }),
+        athlete_data.get('id')
+    ), 200
