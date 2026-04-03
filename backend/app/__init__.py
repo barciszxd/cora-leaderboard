@@ -33,13 +33,16 @@ def create_app():
     # Register blueprints
     from app.api.routes import api_bp  # pylint: disable=import-outside-toplevel
 
+    # supports_credentials=True is required so the browser sends the auth_session
+    # HTTP-only cookie with cross-origin requests (SameSite=None in production).
     if config.DEBUG:
-        CORS(flask_app, origins=['http://localhost:8080'])
+        CORS(flask_app, origins=['http://localhost:8080'], supports_credentials=True)
     else:
         CORS(flask_app,
              origins              = [config.FRONTEND_URL],
              methods              = ['GET', 'POST', 'PUT', 'DELETE'],
-             allow_headers        = ['Content-Type'])
+             allow_headers        = ['Content-Type'],
+             supports_credentials = True)
 
     flask_app.register_blueprint(api_bp, url_prefix='/api')
 
